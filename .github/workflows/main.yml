@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Get project files
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Set up Java
@@ -22,45 +22,32 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+          cache: gradle
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
-        with:
-          packages: 'platform-tools platforms;android-35 build-tools;35.0.0'
 
-      - name: Check project files
+      - name: Install Android SDK packages
         run: |
-          echo "Checking repository..."
+          sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Find Android project
+        run: |
+          echo "Checking repository files..."
           ls -la
-          find . -maxdepth 4 -type f | head -100
-
-      - name: Extract project ZIP if present
-        run: |
-          if [ -f "SK_Phone_Security_Free_Project.zip" ]; then
-            mkdir -p project
-            unzip -o SK_Phone_Security_Free_Project.zip -d project
-          fi
-
-      - name: Locate Android project
-        run: |
-          if [ -f "settings.gradle" ] || [ -f "settings.gradle.kts" ]; then
-            echo "PROJECT_DIR=." >> "$GITHUB_ENV"
-          elif [ -f "project/settings.gradle" ] || [ -f "project/settings.gradle.kts" ]; then
-            echo "PROJECT_DIR=project" >> "$GITHUB_ENV"
-          else
-            echo "ERROR: Android project files not found."
-            echo "Upload the complete Android project ZIP to the repository root."
+          if [ ! -f "settings.gradle" ] && [ ! -f "settings.gradle.kts" ]; then
+            echo "ERROR: Android project files are missing from the repository root."
             exit 1
           fi
 
-      - name: Build APK
+      - name: Build debug APK
         run: |
-          cd "$PROJECT_DIR"
           gradle assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: SK-Phone-Security-APK
-          path: '**/build/outputs/apk/debug/*.apk'
+          path: "**/build/outputs/apk/debug/*.apk"
           if-no-files-found: error
+          retention-days: 7
