@@ -26,24 +26,30 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
         with:
-          cmdline-tools-version: '11076708'
+          packages: 'platform-tools platforms;android-35 build-tools;35.0.0'
 
       - name: Check project files
         run: |
-          echo "Checking repository files..."
+          echo "Checking repository..."
           ls -la
           find . -maxdepth 4 -type f | head -100
 
-      - name: Find Android project
+      - name: Extract project ZIP if present
+        run: |
+          if [ -f "SK_Phone_Security_Free_Project.zip" ]; then
+            mkdir -p project
+            unzip -o SK_Phone_Security_Free_Project.zip -d project
+          fi
+
+      - name: Locate Android project
         run: |
           if [ -f "settings.gradle" ] || [ -f "settings.gradle.kts" ]; then
             echo "PROJECT_DIR=." >> "$GITHUB_ENV"
-          elif [ -f "SK_Phone_Security_Free_Project.zip" ]; then
-            mkdir -p project
-            unzip -o SK_Phone_Security_Free_Project.zip -d project
+          elif [ -f "project/settings.gradle" ] || [ -f "project/settings.gradle.kts" ]; then
             echo "PROJECT_DIR=project" >> "$GITHUB_ENV"
           else
-            echo "ERROR: Android project files or project ZIP not found."
+            echo "ERROR: Android project files not found."
+            echo "Upload the complete Android project ZIP to the repository root."
             exit 1
           fi
 
@@ -56,6 +62,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: SK-Phone-Security-APK
-          path: |
-            **/build/outputs/apk/debug/*.apk
+          path: '**/build/outputs/apk/debug/*.apk'
           if-no-files-found: error
