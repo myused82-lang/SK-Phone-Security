@@ -3,9 +3,11 @@ name: Build SK Phone Security APK
 on:
   workflow_dispatch:
   push:
-    paths:
-      - '.github/workflows/main.yml'
-      - '**'
+    branches:
+      - main
+
+permissions:
+  contents: read
 
 jobs:
   build:
@@ -23,19 +25,37 @@ jobs:
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          cmdline-tools-version: '11076708'
 
-      - name: Extract project ZIP
+      - name: Check project files
         run: |
-          unzip -o SK_Phone_Security_Free_Project.zip -d project
-          find project -maxdepth 3 -type f | head -50
+          echo "Checking repository files..."
+          ls -la
+          find . -maxdepth 4 -type f | head -100
+
+      - name: Find Android project
+        run: |
+          if [ -f "settings.gradle" ] || [ -f "settings.gradle.kts" ]; then
+            echo "PROJECT_DIR=." >> "$GITHUB_ENV"
+          elif [ -f "SK_Phone_Security_Free_Project.zip" ]; then
+            mkdir -p project
+            unzip -o SK_Phone_Security_Free_Project.zip -d project
+            echo "PROJECT_DIR=project" >> "$GITHUB_ENV"
+          else
+            echo "ERROR: Android project files or project ZIP not found."
+            exit 1
+          fi
 
       - name: Build APK
         run: |
-          cd project
+          cd "$PROJECT_DIR"
           gradle assembleDebug
 
-      - name: Save APK
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: SK-Phone-Security-APK
-          path: project/**/build/outputs/apk/debug/*.apk
+          path: |
+            **/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
