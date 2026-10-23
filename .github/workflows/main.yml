@@ -14,77 +14,57 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Get project files
         uses: actions/checkout@v4
 
-      - name: Unpack Android project
-        run: |
-          unzip -o SK_Phone_Security_Starter.zip -d extracted
-          echo "Extracted project files:"
-          find extracted -maxdepth 4 -type f | head -60
-
       - name: Set up Java
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '8.10.2'
-
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
-        with:
-          packages: ''
 
       - name: Install Android SDK packages
         run: |
-          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          sdkmanager "platforms;android-35"
+          sdkmanager "build-tools;35.0.0"
 
-          if [ ! -f "$SDKMANAGER" ]; then
-            SDKMANAGER=$(find "$ANDROID_HOME/cmdline-tools" -name sdkmanager -type f | head -n 1)
-          fi
+      - name: Check project ZIP
+        run: |
+          ls -la
+          test -f SK_Phone_Security_Free_Project.zip
 
-          if [ -z "$SDKMANAGER" ] || [ ! -f "$SDKMANAGER" ]; then
-            echo "ERROR: Android SDK Manager not found"
-            exit 1
-          fi
-
-          yes | "$SDKMANAGER" --licenses || true
-
-          "$SDKMANAGER" \
-            "platform-tools" \
-            "platforms;android-35" \
-            "build-tools;35.0.0"
+      - name: Extract project ZIP
+        run: |
+          unzip -o SK_Phone_Security_Free_Project.zip -d project
 
       - name: Find Android project
+        id: project
         run: |
-          PROJECT=$(find extracted -name settings.gradle -o -name settings.gradle.kts | head -n 1)
+          PROJECT_DIR=$(find project -name settings.gradle -type f -printf '%h\n' | head -n 1)
 
-          if [ -z "$PROJECT" ]; then
-            echo "ERROR: Android project not found"
+          if [ -z "$PROJECT_DIR" ]; then
+            echo "Android project settings.gradle not found"
             exit 1
           fi
 
-          PROJECT_DIR=$(dirname "$PROJECT")
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+          echo "Project found at: $PROJECT_DIR"
 
-            - name: Build Debug APK
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+
+      - name: Build APK
         run: |
-          cd "$PROJECT_DIR"
+          gradle -p "$PROJECT_DIR" assembleDebug
 
-          if [ -f gradlew ]; then
-            chmod +x gradlew
-            ./gradlew assembleDebug --console=plain --stacktrace
-          else
-            gradle assembleDebug --console=plain --stacktrace
-          fi
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: SK-Phone-Security-APK
-          path: extracted/**/build/outputs/apk/debug/*.apk
+          path: project/**/build/outputs/apk/debug/*.apk
           if-no-files-found: error
-          retention-days: 7
