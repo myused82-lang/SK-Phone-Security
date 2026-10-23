@@ -25,23 +25,27 @@ jobs:
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
-        packages: ''
-      - name: Install Android SDK packages
-        run: |
-          sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+        with:
+          packages: 'platform-tools platforms;android-35 build-tools;35.0.0'
 
-      - name: Find Android project
+      - name: Check Android project
         run: |
-          echo "Checking repository files..."
+          echo "Checking project files..."
           ls -la
+
           if [ ! -f "settings.gradle" ] && [ ! -f "settings.gradle.kts" ]; then
-            echo "ERROR: Android project files are missing from the repository root."
+            echo "ERROR: Android project files are missing!"
             exit 1
           fi
 
-      - name: Build debug APK
+      - name: Build Debug APK
         run: |
-          gradle assembleDebug
+          if [ -f "./gradlew" ]; then
+            chmod +x ./gradlew
+            ./gradlew assembleDebug --stacktrace
+          else
+            gradle assembleDebug --stacktrace
+          fi
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
