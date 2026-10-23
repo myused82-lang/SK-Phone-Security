@@ -12,45 +12,40 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Unpack Android project
+        run: |
+          test -f SK_Phone_Security_Starter.zip || { echo 'Starter ZIP not found'; exit 1; }
+          unzip -o SK_Phone_Security_Starter.zip -d .
+          test -f settings.gradle || { echo 'settings.gradle missing after extraction'; exit 1; }
+          test -f app/build.gradle || { echo 'app/build.gradle missing after extraction'; exit 1; }
+
       - name: Set up Java
         uses: actions/setup-java@v5
         with:
-          distribution: 'temurin'
+          distribution: temurin
           java-version: '17'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
         with:
-          packages: 'platform-tools platforms;android-35 build-tools;35.0.0'
+          gradle-version: '8.10.2'
 
-      - name: Check Android project
+      - name: Install Android SDK packages
         run: |
-          echo "Checking project files..."
-          ls -la
+          yes | sdkmanager --licenses > /dev/null || true
+          sdkmanager --install 'platform-tools' 'platforms;android-35' 'build-tools;35.0.0'
 
-          if [ ! -f "settings.gradle" ] && [ ! -f "settings.gradle.kts" ]; then
-            echo "ERROR: Android project files are missing!"
-            exit 1
-          fi
-
-      - name: Build Debug APK
-        run: |
-          if [ -f "./gradlew" ]; then
-            chmod +x ./gradlew
-            ./gradlew assembleDebug --stacktrace
-          else
-            gradle assembleDebug --stacktrace
-          fi
+      - name: Build debug APK
+        run: gradle :app:assembleDebug --stacktrace --no-daemon
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: SK-Phone-Security-APK
-          path: "**/build/outputs/apk/debug/*.apk"
+          path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
           retention-days: 7
